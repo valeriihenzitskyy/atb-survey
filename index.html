@@ -180,9 +180,20 @@ max-width:420px;width:100%;box-shadow:var(--sh)}
 <div style="font-size:44px;margin-bottom:6px">⚡</div>
 <h2>Обстеження АТБ</h2>
 <p>Phage Energy — інтеграція УЗЕ/BESS та СЕС</p>
-<div class="fg"><label class="fl">ПІБ інспектора <span class="req">*</span></label><input class="fi" id="s_name" placeholder="Іванов Іван Іванович"></div>
-<div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="s_email" placeholder="inspector@phage.energy"></div>
-<div class="fg"><label class="fl">Google Apps Script URL <span class="req">*</span></label><input class="fi" id="s_url" placeholder="https://script.google.com/macros/s/…/exec" value="https://script.google.com/a/macros/aggregator.energy/s/AKfycbwJlV05H4tFJjliO6OpaUKhK4ZcTCdlYwPiffeugei5zylTBD0bUjKGlj4WWK3g9BuD/exec"></div>
+<div class="fg"><label class="fl">Оберіть інспектора <span class="req">*</span></label>
+<select class="fs" id="s_select" onchange="selectInspector(this.value)">
+<option value="">— Оберіть зі списку —</option>
+</select></div>
+<div id="newInspBlock" style="display:none;border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:12px;background:var(--sf2)">
+<div style="font-size:11px;font-weight:600;color:var(--ac);margin-bottom:6px">➕ Новий інспектор</div>
+<div class="fg"><label class="fl">ПІБ <span class="req">*</span></label><input class="fi" id="s_new_name" placeholder="Прізвище Ім'я По-батькові"></div>
+<div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="s_new_email" placeholder="inspector@phage.energy"></div>
+<div class="fg"><label class="fl">Телефон</label><input class="fi" type="tel" id="s_new_phone" placeholder="+380..."></div>
+<button style="width:100%;padding:10px;background:var(--ac);color:#fff;border-radius:8px;font-size:13px;font-weight:600;margin-top:6px" onclick="addInspector()">✅ Додати інспектора</button>
+</div>
+<input type="hidden" id="s_name">
+<input type="hidden" id="s_email">
+<div class="fg"><label class="fl">Google Apps Script URL <span class="req">*</span></label><input class="fi" id="s_url" placeholder="https://script.google.com/macros/s/…/exec" value="https://script.google.com/a/macros/aggregator.energy/s/AKfycbyPlhNoJWT5EDmfgyH_YUnV1N2_fG8a111TZhw71gKYht8uJrtbVyetfB8k0Req3WXKuQ/exec"></div>
 <button class="setup-btn" onclick="doSetup()">🚀 Увійти і почати</button>
 <div class="setup-status" id="setupStatus"></div>
 <div id="savedDrafts"></div>
@@ -505,6 +516,67 @@ function startAutoSave(){
       const save={data,ts:Date.now(),label:'АТБ №'+(data.storeNum||'?')+' '+data.city};
       // Use variable storage since localStorage may be blocked
       window._drafts=window._drafts||{};
+
+// ===== INSPECTOR LIST =====
+var INSPECTORS = [
+  {name:'Генціцький Валерій', email:'valerii@aggregator.energy', phone:''},
+];
+
+function loadInspectors(){
+  // Load saved inspectors from window storage
+  if(window._inspectors && window._inspectors.length){
+    INSPECTORS = window._inspectors;
+  }
+  renderInspectorSelect();
+}
+
+function renderInspectorSelect(){
+  var sel = document.getElementById('s_select');
+  var opts = '<option value="">— Оберіть зі списку —</option>';
+  INSPECTORS.forEach(function(ins, i){
+    opts += '<option value="'+i+'">'+ins.name+(ins.email?' ('+ins.email+')':'')+'</option>';
+  });
+  opts += '<option value="__new__">➕ Додати нового інспектора...</option>';
+  sel.innerHTML = opts;
+}
+
+function selectInspector(val){
+  var block = document.getElementById('newInspBlock');
+  if(val === '__new__'){
+    block.style.display = 'block';
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_email').value = '';
+    return;
+  }
+  block.style.display = 'none';
+  if(val === '') return;
+  var ins = INSPECTORS[parseInt(val)];
+  document.getElementById('s_name').value = ins.name;
+  document.getElementById('s_email').value = ins.email || '';
+}
+
+function addInspector(){
+  var n = document.getElementById('s_new_name').value.trim();
+  var e = document.getElementById('s_new_email').value.trim();
+  var p = document.getElementById('s_new_phone').value.trim();
+  if(!n){toast('⚠️ Вкажіть ПІБ');return;}
+  var ins = {name:n, email:e, phone:p};
+  INSPECTORS.push(ins);
+  window._inspectors = INSPECTORS;
+  renderInspectorSelect();
+  // Select the new one
+  var sel = document.getElementById('s_select');
+  sel.value = ''+(INSPECTORS.length-1);
+  selectInspector(''+(INSPECTORS.length-1));
+  document.getElementById('newInspBlock').style.display = 'none';
+  document.getElementById('s_new_name').value = '';
+  document.getElementById('s_new_email').value = '';
+  document.getElementById('s_new_phone').value = '';
+  toast('✅ Інспектора '+n+' додано');
+}
+
+loadInspectors();
+
       window._drafts[key]=save;
       const ind=document.getElementById('autoSaveInd');
       ind.textContent='💾 '+new Date().toLocaleTimeString('uk',{hour:'2-digit',minute:'2-digit'});
@@ -533,7 +605,68 @@ function loadDraft(key){
   for(let i=1;i<=6;i++){if(d['pri'+i]){document.getElementById('f_pri'+i).value=d['pri'+i];document.getElementById('pv'+i).textContent=d['pri'+i]}}
   upProg();toast('📋 Чернетку завантажено');
 }
-function delDraft(key){window._drafts=window._drafts||{};delete window._drafts[key];showSavedDrafts();toast('🗑️ Видалено')}
+function delDraft(key){window._drafts=window._drafts||{};
+
+// ===== INSPECTOR LIST =====
+var INSPECTORS = [
+  {name:'Генціцький Валерій', email:'valerii@aggregator.energy', phone:''},
+];
+
+function loadInspectors(){
+  // Load saved inspectors from window storage
+  if(window._inspectors && window._inspectors.length){
+    INSPECTORS = window._inspectors;
+  }
+  renderInspectorSelect();
+}
+
+function renderInspectorSelect(){
+  var sel = document.getElementById('s_select');
+  var opts = '<option value="">— Оберіть зі списку —</option>';
+  INSPECTORS.forEach(function(ins, i){
+    opts += '<option value="'+i+'">'+ins.name+(ins.email?' ('+ins.email+')':'')+'</option>';
+  });
+  opts += '<option value="__new__">➕ Додати нового інспектора...</option>';
+  sel.innerHTML = opts;
+}
+
+function selectInspector(val){
+  var block = document.getElementById('newInspBlock');
+  if(val === '__new__'){
+    block.style.display = 'block';
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_email').value = '';
+    return;
+  }
+  block.style.display = 'none';
+  if(val === '') return;
+  var ins = INSPECTORS[parseInt(val)];
+  document.getElementById('s_name').value = ins.name;
+  document.getElementById('s_email').value = ins.email || '';
+}
+
+function addInspector(){
+  var n = document.getElementById('s_new_name').value.trim();
+  var e = document.getElementById('s_new_email').value.trim();
+  var p = document.getElementById('s_new_phone').value.trim();
+  if(!n){toast('⚠️ Вкажіть ПІБ');return;}
+  var ins = {name:n, email:e, phone:p};
+  INSPECTORS.push(ins);
+  window._inspectors = INSPECTORS;
+  renderInspectorSelect();
+  // Select the new one
+  var sel = document.getElementById('s_select');
+  sel.value = ''+(INSPECTORS.length-1);
+  selectInspector(''+(INSPECTORS.length-1));
+  document.getElementById('newInspBlock').style.display = 'none';
+  document.getElementById('s_new_name').value = '';
+  document.getElementById('s_new_email').value = '';
+  document.getElementById('s_new_phone').value = '';
+  toast('✅ Інспектора '+n+' додано');
+}
+
+loadInspectors();
+delete window._drafts[key];showSavedDrafts();toast('🗑️ Видалено')}
 
 // ===== PHOTO GROUPS =====
 function initPhotoGroups(){
@@ -742,6 +875,67 @@ function clearAll(){
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2500)}
 
 window._drafts=window._drafts||{};
+
+// ===== INSPECTOR LIST =====
+var INSPECTORS = [
+  {name:'Генціцький Валерій', email:'valerii@aggregator.energy', phone:''},
+];
+
+function loadInspectors(){
+  // Load saved inspectors from window storage
+  if(window._inspectors && window._inspectors.length){
+    INSPECTORS = window._inspectors;
+  }
+  renderInspectorSelect();
+}
+
+function renderInspectorSelect(){
+  var sel = document.getElementById('s_select');
+  var opts = '<option value="">— Оберіть зі списку —</option>';
+  INSPECTORS.forEach(function(ins, i){
+    opts += '<option value="'+i+'">'+ins.name+(ins.email?' ('+ins.email+')':'')+'</option>';
+  });
+  opts += '<option value="__new__">➕ Додати нового інспектора...</option>';
+  sel.innerHTML = opts;
+}
+
+function selectInspector(val){
+  var block = document.getElementById('newInspBlock');
+  if(val === '__new__'){
+    block.style.display = 'block';
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_email').value = '';
+    return;
+  }
+  block.style.display = 'none';
+  if(val === '') return;
+  var ins = INSPECTORS[parseInt(val)];
+  document.getElementById('s_name').value = ins.name;
+  document.getElementById('s_email').value = ins.email || '';
+}
+
+function addInspector(){
+  var n = document.getElementById('s_new_name').value.trim();
+  var e = document.getElementById('s_new_email').value.trim();
+  var p = document.getElementById('s_new_phone').value.trim();
+  if(!n){toast('⚠️ Вкажіть ПІБ');return;}
+  var ins = {name:n, email:e, phone:p};
+  INSPECTORS.push(ins);
+  window._inspectors = INSPECTORS;
+  renderInspectorSelect();
+  // Select the new one
+  var sel = document.getElementById('s_select');
+  sel.value = ''+(INSPECTORS.length-1);
+  selectInspector(''+(INSPECTORS.length-1));
+  document.getElementById('newInspBlock').style.display = 'none';
+  document.getElementById('s_new_name').value = '';
+  document.getElementById('s_new_email').value = '';
+  document.getElementById('s_new_phone').value = '';
+  toast('✅ Інспектора '+n+' додано');
+}
+
+loadInspectors();
+
 </script>
 </body>
 </html>
